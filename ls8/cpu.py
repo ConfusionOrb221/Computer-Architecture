@@ -7,6 +7,8 @@ class methods:
     PRN = 0b1000111
     HLT = 0b1
     MUL = 0b10100010
+    PUSH = 0b01000101 
+    POP = 0b01000110
     
 class CPU:
     """Main CPU class."""
@@ -19,6 +21,8 @@ class CPU:
         self.ir = 0
         self.mar = 0
         self.fl = 0
+        self.stack_pointer = 7
+        self.memory = []
         self.running = True
     
     def ram_read(self,address):
@@ -48,6 +52,10 @@ class CPU:
                     program.append(binary)
 
         file.close()
+        stack_space = 256 - len(program)
+        mem = program + [0] * stack_space
+        self.reg[self.stack_pointer] = len(mem) - 1
+        print(mem)
         for instruction in program:
             self.ram[address] = instruction
             address += 1
@@ -89,15 +97,30 @@ class CPU:
 
                 self.reg[op_1] = op_2
                 self.pc += 3
-            if command == methods.PRN:
+            elif command == methods.PRN:
                 op_1 = self.ram_read(self.pc + 1)
                 print(self.reg[op_1])
                 self.pc += 2
-            if command == methods.MUL:
+            elif command == methods.MUL:
                 op_1 = self.ram_read(self.pc + 1)
                 op_2 = self.ram_read(self.pc + 2)
                 self.reg[op_1] = op_1 * op_2
                 self.pc += 3
-            if command == methods.HLT:
+            elif command == methods.HLT:
                 self.running = False
                 self.pc += 1
+            elif command == methods.PUSH:
+                self.reg[self.stack_pointer] -= 1
+                op_1 = self.ram_read(self.pc+1)
+                val_in_reg = self.reg[op_1]
+                self.ram[self.reg[self.stack_pointer]] = val_in_reg
+                self.pc += 2
+            elif command == methods.POP:
+                op_1 = self.ram_read(self.pc + 1)
+
+                self.reg[op_1] = self.ram[self.reg[self.stack_pointer]]
+                
+                self.reg[self.stack_pointer] += 1
+                self.pc += 2
+
+

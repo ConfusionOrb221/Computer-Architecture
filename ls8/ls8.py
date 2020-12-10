@@ -7,5 +7,5 @@ from cpu import *
 
 cpu = CPU()
 
-cpu.load('mult')
+cpu.load(sys.argv[1])
 cpu.run()
