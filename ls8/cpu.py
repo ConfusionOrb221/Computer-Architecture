@@ -7,8 +7,11 @@ class methods:
     PRN = 0b1000111
     HLT = 0b1
     MUL = 0b10100010
-    PUSH = 0b01000101 
     POP = 0b01000110
+    RET = 0b00010001
+    PUSH = 0b01000101
+    CALL = 0b01010000
+    ADD = 0b10100000
     
 class CPU:
     """Main CPU class."""
@@ -16,49 +19,33 @@ class CPU:
     def __init__(self):
         self.ram = [0] * 256
         self.reg = [0] * 8
-        self.reg[7] = 0xF4
         self.pc = 0
-        self.ir = 0
-        self.mar = 0
-        self.fl = 0
         self.stack_pointer = 7
-        self.memory = []
         self.running = True
     
     def ram_read(self,address):
         return self.ram[address]
     
-    def ram_write(self, address, value):
+    def ram_write(self, value, address):
         self.ram[address] = value
 
     def load(self, filename):
-        """Load a program into memory."""
-
         address = 0
-        program = []
-        file = open(f'./examples/{filename}.ls8', 'r')
-        lines = file.readlines()
-
-        for line in lines:
-            if line == '':
-                pass
-            else:
-                split = line.split('#',1)
-                if split[0] == '' or split[0] == '\n':
-                    pass
-                else:
-                    final = split[0].split('\n')
-                    binary = int('0b' + final[0], 2)
-                    program.append(binary)
-
-        file.close()
-        stack_space = 256 - len(program)
-        mem = program + [0] * stack_space
-        self.reg[self.stack_pointer] = len(mem) - 1
-        print(mem)
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        try:
+            with open(f'examples/{filename}.ls8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line == '' or line[0] == "#":
+                        continue
+                    try:
+                        str_value = line.split("#")[0]
+                        value = int(str_value, 2)
+                    except ValueError:
+                        sys.exit(0)
+                    self.ram[address] = value
+                    address += 1
+        except FileNotFoundError:
+            sys.exit(0)
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
@@ -89,38 +76,43 @@ class CPU:
         print()
 
     def run(self):
+        sp = 7
         while self.running:
             command = self.ram_read(self.pc)
+            op_1 = self.ram_read(self.pc + 1)
+            op_2 = self.ram_read(self.pc + 2)
             if command == methods.LDI:
-                op_1 = self.ram_read(self.pc + 1)
-                op_2 = self.ram_read(self.pc + 2)
-
                 self.reg[op_1] = op_2
                 self.pc += 3
             elif command == methods.PRN:
-                op_1 = self.ram_read(self.pc + 1)
                 print(self.reg[op_1])
                 self.pc += 2
+            elif command == methods.ADD:
+                self.reg[op_1] += self.reg[op_2]
+                self.pc += 3
             elif command == methods.MUL:
-                op_1 = self.ram_read(self.pc + 1)
-                op_2 = self.ram_read(self.pc + 2)
                 self.reg[op_1] = op_1 * op_2
                 self.pc += 3
             elif command == methods.HLT:
                 self.running = False
-                self.pc += 1
+                self.pc = 0
             elif command == methods.PUSH:
-                self.reg[self.stack_pointer] -= 1
-                op_1 = self.ram_read(self.pc+1)
-                val_in_reg = self.reg[op_1]
-                self.ram[self.reg[self.stack_pointer]] = val_in_reg
+                sp -= 1
+                self.ram_write(self.reg[op_1], sp)
                 self.pc += 2
             elif command == methods.POP:
-                op_1 = self.ram_read(self.pc + 1)
-
-                self.reg[op_1] = self.ram[self.reg[self.stack_pointer]]
-                
-                self.reg[self.stack_pointer] += 1
+                self.reg[op_1] = self.ram[sp]
+                sp += 1
                 self.pc += 2
+            elif command == methods.CALL:
+                address = self.pc + 2
+                sp -= 1
+                self.ram_write(address, sp)
+                self.pc = self.reg[op_1]
+            elif command == methods.RET:
+                self.pc = self.ram[sp]
+                sp += 1
+            else:
+                print(command)
 
 
